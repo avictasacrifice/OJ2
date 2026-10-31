@@ -72,7 +72,7 @@ const AIM_ASSIST_RADIUS := 0.6       # "примерно попал" — рад�
 @export_flags_3d_physics var assist_mask: int = 2
 
 @export var BulletScene : PackedScene
-
+@onready var shoot_anim = $Camera3D/Pistol/AnimationPlayer
 @export var gameover: Control 
 @onready var camera: Camera3D = $Camera3D
 @onready var muzzle: Marker3D = $Camera3D/Muzzle
@@ -467,6 +467,9 @@ func shoot() -> void:
 	var target_point: Vector3 = target.point
 
 	Audio.play(&"shot")
+	shoot_anim.speed_scale = 5.0
+	shoot_anim.stop(true)
+	shoot_anim.play("Pistol_01_ArmatureAction")
 	Shaker.play(0.15, 0.25, Tween.TRANS_EXPO)
 
 	var bullet := BulletScene.instantiate() as Node3D

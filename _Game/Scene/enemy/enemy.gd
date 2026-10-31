@@ -217,7 +217,7 @@ func die() -> void:
 		return
 	_is_dead = true
 	print("Враг сдох")
-
+	Shaker.play(0.1, 0.25, Tween.TRANS_EXPO)
 	_spawn_blood(true)
 	set_physics_process(false)
 	queue_free()

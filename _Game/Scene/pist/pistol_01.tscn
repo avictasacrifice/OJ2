@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://8xel0sy6m1nn"]
+
+[ext_resource type="PackedScene" uid="uid://by4i2jisga0f2" path="res://_Game/Scene/pist/Pistol_01.glb" id="1_ol54s"]
+
+[node name="Pistol_01" unique_id=1380422138 instance=ExtResource("1_ol54s")]
+
+[node name="Pistol_01_Armature" parent="." index="0" unique_id=111741502]
+transform = Transform3D(0.99999994, -0.0002588245, -0.0002337867, 0.00025881498, 0.99999994, -4.0654162e-05, 0.00023379721, 4.059365e-05, 1, 0, 0, 0)
+
+[node name="Skeleton3D" parent="Pistol_01_Armature" index="0" unique_id=388996193]
+bones/3/position = Vector3(0.38776538, 11.946089, 3.2204892e-07)
+bones/4/rotation = Quaternion(0.9999054, 6.012702e-10, -4.3707253e-08, 0.013755338)
+
+[node name="AnimationPlayer" parent="." index="1" unique_id=1633334565]
+speed_scale = 2.0

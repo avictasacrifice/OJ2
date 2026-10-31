@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://qvgce1fhwijs" path="res://_Game/Scene/main/player.gd" id="1_dyvsr"]
 [ext_resource type="PackedScene" uid="uid://b1ixog1pe44pk" path="res://_Game/Scene/bullet/bullet.tscn" id="2_67t6u"]
+[ext_resource type="PackedScene" uid="uid://8xel0sy6m1nn" path="res://_Game/Scene/pist/pistol_01.tscn" id="3_gg1bq"]
 [ext_resource type="Shader" uid="uid://6vvrsg3cndc6" path="res://_Game/Scene/main/dither.gdshader" id="4_3njoo"]
 [ext_resource type="Script" uid="uid://budg5tjkdblb7" path="res://_Game/Scene/main/palette_controller.gd" id="5_53km8"]
 [ext_resource type="PackedScene" uid="uid://md4i81caa8hl" path="res://_Game/Scene/menu/game_over.tscn" id="6_53km8"]
@@ -81,6 +82,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.03)
 gizmo_extents = 0.0
 
+[node name="Pistol" parent="CharacterBody3D/Camera3D" unique_id=1380422138 instance=ExtResource("3_gg1bq")]
+transform = Transform3D(3.0199159e-09, 0, 0.04, 0, 0.04, 0, -0.04, 0, 3.0199159e-09, 0.54112625, -0.7503755, -0.56500244)
+
 [node name="AreaLight3D" type="AreaLight3D" parent="CharacterBody3D" unique_id=569583801]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22312021, 0)
 light_energy = 1000.0
@@ -114,9 +118,6 @@ layout_mode = 1
 game_scene = "uid://d1n6oc3tfm8ls"
 menu_scene = "uid://dqaf8qss06d7m"
 
-[node name="Enemy" parent="CanvasLayer/Shader" unique_id=1243918227 instance=ExtResource("6_lfwek")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4064, 1.4371575, 14.273588)
-
 [node name="ColorRect" type="ColorRect" parent="CanvasLayer" unique_id=1231497691]
 anchors_preset = 8
 anchor_left = 0.5
@@ -137,11 +138,25 @@ transform = Transform3D(0.6040323, -0.58093125, 0.54558593, 0.398339, 0.81300884
 light_energy = 0.646
 shadow_enabled = true
 
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Light" unique_id=1498514214]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.1362362, -2.454926e-07)
+mesh = SubResource("QuadMesh_hl1nl")
+
 [node name="lvl1" type="Node3D" parent="." unique_id=719834729]
 
 [node name="Sewer" parent="lvl1" unique_id=1224933508 instance=ExtResource("6_u8vf7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56.239, 0, 45.934)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1498514214]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.1362362, -2.454926e-07)
-mesh = SubResource("QuadMesh_hl1nl")
+[node name="enemw" type="Node3D" parent="lvl1" unique_id=1596404309]
+
+[node name="Enemy" parent="lvl1/enemw" unique_id=1243918227 instance=ExtResource("6_lfwek")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4064, 1.4371575, 14.194149)
+
+[node name="Enemy2" parent="lvl1/enemw" unique_id=1066308642 instance=ExtResource("6_lfwek")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.391102, 1.3911091, 21.722122)
+
+[node name="Enemy3" parent="lvl1/enemw" unique_id=868637963 instance=ExtResource("6_lfwek")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2056057, 1.3911091, 21.722122)
+
+[node name="Enemy4" parent="lvl1/enemw" unique_id=17355696 instance=ExtResource("6_lfwek")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8.761923, 1.3911091, 21.722122)
