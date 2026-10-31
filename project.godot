@@ -20,6 +20,8 @@ config/icon="res://icon.svg"
 Audio="*uid://d02b77qql4i8v"
 Shaker="*uid://bpvllwbq2d4pf"
 UIKit="*uid://duuokkffes7fh"
+LevelSystem="*uid://cdv5xtf7ur86k"
+SceneTransition="*uid://db1srut6c4cpj"
 
 [display]
 

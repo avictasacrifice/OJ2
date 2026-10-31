@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://tmoa0fmtk4i8" path="res://_Game/Scene/main/Sewer.glb" id="6_u8vf7"]
 [ext_resource type="Shader" uid="uid://bafu0w1nvxm5e" path="res://_Game/Scene/main/wather.gdshader" id="7_u8vf7"]
 [ext_resource type="Script" uid="uid://bse62368rf251" path="res://_Game/Scene/main/trigger.gd" id="8_ipjt6"]
+[ext_resource type="Script" uid="uid://bpyqe7ov22o2x" path="res://_Game/Scene/main/area_3d_3.gd" id="9_wg0ys"]
 
 [sub_resource type="Environment" id="Environment_hl1nl"]
 background_mode = 1
@@ -35,19 +36,19 @@ shader_parameter/dither_strength = 0.4
 shader_parameter/pattern_scale = 2.5
 shader_parameter/grain_strength = 0.0650000030875
 
-[sub_resource type="Gradient" id="Gradient_0fms0"]
+[sub_resource type="Gradient" id="Gradient_ipjt6"]
 offsets = PackedFloat32Array(0.16666667, 1)
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_1twp4"]
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_wg0ys"]
 noise_type = 4
 seed = 29
 frequency = 0.0231
 
 [sub_resource type="NoiseTexture2D" id="NoiseTexture2D_5ibvj"]
-noise = SubResource("FastNoiseLite_1twp4")
-color_ramp = SubResource("Gradient_0fms0")
+noise = SubResource("FastNoiseLite_wg0ys")
+color_ramp = SubResource("Gradient_ipjt6")
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_kdj24"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_8thq5"]
 render_priority = 0
 shader = ExtResource("7_u8vf7")
 shader_parameter/water_color = Color(0.25490198, 0.34509805, 0, 0.8)
@@ -56,7 +57,7 @@ shader_parameter/wave_speed = 0.05
 shader_parameter/wave_height = 0.53600002546
 
 [sub_resource type="QuadMesh" id="QuadMesh_hl1nl"]
-material = SubResource("ShaderMaterial_kdj24")
+material = SubResource("ShaderMaterial_8thq5")
 size = Vector2(58.16, 277.52)
 subdivide_width = 100
 subdivide_depth = 100
@@ -73,12 +74,7 @@ environment = SubResource("Environment_hl1nl")
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1616475035 node_paths=PackedStringArray("gameover")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.094538, 0.8171024, -75.83914)
 script = ExtResource("1_dyvsr")
-hp_bar_size = null
-hp_bar_pos = null
-auto_bhop = null
-MOUSE_SENSITIVITY = null
-aim_mask = null
-assist_mask = null
+show_xp_bar = false
 BulletScene = ExtResource("2_67t6u")
 gameover = NodePath("../CanvasLayer/Shader/ColorRect/GameOver")
 
@@ -157,8 +153,7 @@ mesh = SubResource("QuadMesh_hl1nl")
 [node name="Area3D" type="Area3D" parent="lvl1" unique_id=156758203]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4064, 1.4371575, 12.134769)
 script = ExtResource("8_ipjt6")
-message = "УБЕЙ ЕГО"
-pause_game = true
+message = "УБЕЙ"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="lvl1/Area3D" unique_id=1460579760]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.10217023, 1.7160646, -7.301817)
@@ -167,11 +162,20 @@ shape = SubResource("BoxShape3D_hl1nl")
 [node name="Area3D2" type="Area3D" parent="lvl1" unique_id=1688400068]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4064, 1.4371575, 51.17248)
 script = ExtResource("8_ipjt6")
-message = "в игре есть bhop
-а еще можешь нажать shift"
-pause_game = true
+message = "SHIFT + SPACE
+            |
+           \\/"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="lvl1/Area3D2" unique_id=862589972]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.10217023, 1.7160646, -7.301817)
+shape = SubResource("BoxShape3D_hl1nl")
+
+[node name="Area3D3" type="Area3D" parent="lvl1" unique_id=1112605923]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4064, 1.4371575, 154.27377)
+script = ExtResource("9_wg0ys")
+target_scene = "uid://chf5wat858pgc"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="lvl1/Area3D3" unique_id=778329564]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.10217023, 1.7160646, -7.301817)
 shape = SubResource("BoxShape3D_hl1nl")
 

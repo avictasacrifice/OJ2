@@ -1,9 +1,5 @@
 extends CharacterBody3D
-# ↑ ВАЖНО: тип корневой ноды CharacterBody3D
 
-# ============================================================
-#  НАСТРОЙКИ
-# ============================================================
 @export_group("Движение")
 @export var move_speed: float = 3.5
 @export var gravity: float = 20.0
@@ -28,26 +24,21 @@ extends CharacterBody3D
 @export_group("Прочее")
 @export var player_group: StringName = &"player"
 @export var blood_scene: PackedScene
+@export var xp_reward: int = 5
+@export var max_health: float = 3.0
 
-# ============================================================
-#  СОСТОЯНИЕ
-# ============================================================
-var health: int = 3
-
+var health: float
 var _flash_material: StandardMaterial3D
 var _player: Node3D = null
 var _damage_timer: float = 0.0
 var _is_dead: bool = false
-
 var _path_timer: float = 0.0
 var _sway_time: float = 0.0
 @export var _mesh: MeshInstance3D
 
 
-# ============================================================
-#  ЖИЗНЕННЫЙ ЦИКЛ
-# ============================================================
 func _ready() -> void:
+	health = max_health
 	_flash_material = StandardMaterial3D.new()
 	_flash_material.albedo_color = Color.WHITE
 	_mesh.material_override = _flash_material
@@ -55,9 +46,8 @@ func _ready() -> void:
 
 	if navigation_agent:
 		navigation_agent.path_desired_distance = 0.5
-		navigation_agent.target_desired_distance = max(stop_distance, 0.5)
+		navigation_agent.target_desired_distance = maxf(stop_distance, 0.5)
 		navigation_agent.avoidance_enabled = false
-		# отложенная инициализация цели, чтобы навмеш успел проснуться
 		call_deferred("_setup_nav_target")
 
 
@@ -92,11 +82,9 @@ func _physics_process(delta: float) -> void:
 
 	if dist <= detection_range and dist > stop_distance:
 		var move_dir := _get_move_direction(delta)
-
 		if move_dir.length_squared() > 0.0001:
 			velocity.x = move_dir.x * move_speed
 			velocity.z = move_dir.z * move_speed
-
 			var target_yaw := atan2(-move_dir.x, -move_dir.z)
 			rotation.y = lerp_angle(rotation.y, target_yaw, rotation_speed * delta)
 	else:
@@ -106,20 +94,15 @@ func _physics_process(delta: float) -> void:
 
 	var moving := Vector2(velocity.x, velocity.z).length() > 0.1
 	_update_sway(delta, moving)
-
 	_try_hit_player(dist)
 
 
-# ============================================================
-#  НАПРАВЛЕНИЕ ДВИЖЕНИЯ
-# ============================================================
 func _get_move_direction(delta: float) -> Vector3:
 	if navigation_agent and navigation_agent.is_inside_tree():
 		_path_timer -= delta
 		if _path_timer <= 0.0:
 			_path_timer = path_update_interval
 			navigation_agent.target_position = _player.global_position
-
 		var next_pos := navigation_agent.get_next_path_position()
 		var dir := next_pos - global_position
 		dir.y = 0.0
@@ -146,13 +129,9 @@ func _refresh_player() -> void:
 		_player = players[0] as Node3D
 
 
-# ============================================================
-#  КАЧАНИЕ МОДЕЛИ
-# ============================================================
 func _update_sway(delta: float, is_moving: bool) -> void:
 	if not _mesh:
 		return
-
 	if is_moving:
 		_sway_time += delta * sway_speed
 		var target_sway := sin(_sway_time) * sway_amount
@@ -162,9 +141,6 @@ func _update_sway(delta: float, is_moving: bool) -> void:
 		_mesh.rotation.z = lerp(_mesh.rotation.z, 0.0, sway_smoothness * delta)
 
 
-# ============================================================
-#  КОНТАКТНЫЙ УРОН
-# ============================================================
 func _try_hit_player(dist: float) -> void:
 	if _damage_timer > 0.0:
 		return
@@ -172,13 +148,11 @@ func _try_hit_player(dist: float) -> void:
 		return
 
 	var touching := dist <= attack_range
-
 	if not touching:
 		for i in get_slide_collision_count():
 			if get_slide_collision(i).get_collider() == _player:
 				touching = true
 				break
-
 	if not touching:
 		return
 
@@ -187,10 +161,7 @@ func _try_hit_player(dist: float) -> void:
 		_damage_timer = damage_cooldown
 
 
-# ============================================================
-#  ПОЛУЧЕНИЕ УРОНА / СМЕРТЬ
-# ============================================================
-func take_damage(amount: int) -> void:
+func take_damage(amount: float) -> void:
 	Audio.play(&"hit")
 	if _is_dead:
 		return
@@ -216,6 +187,7 @@ func die() -> void:
 	if _is_dead:
 		return
 	_is_dead = true
+	LevelSystem.add_xp(xp_reward)
 	print("Враг сдох")
 	Shaker.play(0.1, 0.25, Tween.TRANS_EXPO)
 	_spawn_blood(true)
@@ -223,18 +195,13 @@ func die() -> void:
 	queue_free()
 
 
-# ============================================================
-#  КРОВЬ
-# ============================================================
 func _spawn_blood(is_death: bool) -> void:
 	if not blood_scene:
 		return
 
 	var blood = blood_scene.instantiate() as GPUParticles3D
 	get_tree().current_scene.add_child(blood)
-
 	blood.global_position = global_position + Vector3(0, 0, 0)
-
 	blood.one_shot = true
 	blood.explosiveness = 1.0
 	blood.local_coords = false
@@ -244,7 +211,6 @@ func _spawn_blood(is_death: bool) -> void:
 	if mat:
 		mat.direction = Vector3(0, 1, 0)
 		mat.gravity = Vector3(0, -9.8, 0)
-
 		if is_death:
 			blood.amount = 200
 			blood.lifetime = 4.0
@@ -263,8 +229,6 @@ func _spawn_blood(is_death: bool) -> void:
 			mat.scale_max = 0.5
 
 	blood.restart()
-
-	# отдельная функция вместо лямбды — надёжнее
 	_free_blood_after(blood, blood.lifetime + 0.5)
 
 

@@ -1,46 +1,40 @@
 extends CharacterBody3D
 
-# ============================================================
-#  ПАРАМЕТРЫ
-# ============================================================
-
-# --- Основа ---
+@export var show_xp_bar: bool = true
 var _hp_label: Label
-const MAX_HEALTH := 10          # current health остаётся var health
+var MAX_HEALTH := 10
 @export var hp_bar_size := Vector2(280, 20)
 @export var hp_bar_pos := Vector2(24, 24)
 var _hp_bar: ProgressBar
-const SPEED := 10.0
-const MAX_SPEED := 50.0
+var SPEED := 10.0
+var MAX_SPEED := 50.0
 const GRAVITY := 20.0
 const JUMP_VELOCITY := 7.5
-var health
+var health: int
 
-# --- Земля ---
+var damage_mult := 1.0
+var regen_per_sec := 0.0
+var _regen_accum := 0.0
+var _xp_bar: ProgressBar
+
 const GROUND_ACCEL := 18.0
 const FRICTION := 12.0
 const STOP_SPEED := 1.8
 
-# --- Воздух (подстроено под уворачивание) ---
-const AIR_ACCEL := 12.0              # ↑ можно резко менять направление в прыжке
-const AIR_TURN_RATE := 5.5           # ↑ лучше руление на скорости
+const AIR_ACCEL := 12.0
+const AIR_TURN_RATE := 5.5
 
-# --- Бхоп ---
-const BHOP_SOFT_CAP := 16.0          # выше этой скорости каждый прыжок слегка "съедает" излишек
-const BHOP_EXCESS_KEEP := 0.88       # какую долю излишка сохраняем за прыжок
-const JUMP_CUT := 0.55               # отпустил пробел раньше -> прыжок ниже (быстрые мелкие уклонения)
+const BHOP_SOFT_CAP := 16.0
+const BHOP_EXCESS_KEEP := 0.88
+const JUMP_CUT := 0.55
 
-# --- Jump feel ---
 const COYOTE_TIME := 0.12
 const JUMP_BUFFER := 0.15
-
 @export var auto_bhop := true
 
-# --- Мышь ---
 @export var MOUSE_SENSITIVITY := 0.0026
 const PITCH_LIMIT := deg_to_rad(88.0)
 
-# --- Compress / Launch ---
 const COMPRESS_DECEL := 2.0
 const COMPRESS_STEER := 22.0
 const COMPRESS_AIR_STEER := 14.0
@@ -54,42 +48,31 @@ const LAUNCH_MIN_CHARGE := 0.25
 const LAUNCH_COOLDOWN := 0.25
 const TUCK_DURATION := 0.22
 
-# --- Dash window ---
 const DASH_WINDOW := 0.40
 const DASH_AIR_ACCEL_MULT := 1.8
 const DASH_FRICTION_MULT := 0.15
 const DASH_FOV_KICK := 18.0
 const DASH_TURN_RATE := 7.0
 
-# --- Отбрасывание от оружия (сильно уменьшено) ---
-const WEAPON_KNOCKBACK := 1.0        # было 3.5
-const WEAPON_KNOCKBACK_UP_MULT := 0.5 # было 1.6
-const WEAPON_KNOCKBACK_MAX := 2.5    # потолок прироста скорости за выстрел
+const WEAPON_KNOCKBACK := 1.0
+const WEAPON_KNOCKBACK_UP_MULT := 0.5
+const WEAPON_KNOCKBACK_MAX := 2.5
 
-# --- Прицеливание (рейкаст + помощь прицела) ---
 const AIM_RANGE := 200.0
-const AIM_ASSIST_RADIUS := 0.6       # "примерно попал" — радиус сферы вокруг линии прицела
-
-## Слои, по которым стреляем лучом (по умолчанию всё).
+const AIM_ASSIST_RADIUS := 0.6
 @export_flags_3d_physics var aim_mask: int = 0xFFFFFFFF
-## Слой(и) врагов для aim-assist. Поставь сюда физический слой врагов.
-## Если 0 — помощь прицела отключена, работает только точный луч.
 @export_flags_3d_physics var assist_mask: int = 2
 
 @export var BulletScene : PackedScene
 @onready var shoot_anim = $Camera3D/Pistol/AnimationPlayer
-@export var gameover: Control 
+@export var gameover: Control
 @onready var camera: Camera3D = $Camera3D
 @onready var muzzle: Marker3D = $Camera3D/Muzzle
 
 const PAUSE_MENU_SCENE := preload("res://_Game/UI/_pause_menu.tscn")
 var _pause_menu: Control = null
 
-# ============================================================
-#  СОСТОЯНИЕ
-# ============================================================
 var _pitch := 0.0
-
 var _is_compressing := false
 var _compress_time := 0.0
 var _tuck_timer := 0.0
@@ -106,26 +89,69 @@ var _col_ready := false
 var _base_fov := 0.0
 
 
-# ============================================================
-#  LIFECYCLE
-# ============================================================
-
 func _ready() -> void:
+	_teardown()
+	_build()
+
+func _exit_tree() -> void:
+	_teardown()
+
+func _teardown() -> void:
+	# отписка от глобальных сигналов
+	if is_instance_valid(LevelSystem) and LevelSystem.xp_changed.is_connected(_on_xp_changed):
+		LevelSystem.xp_changed.disconnect(_on_xp_changed)
+
+	# HUD-элементы живут в UIKit._hud_layer (синглтон), поэтому при пересоздании
+	# игрока их нужно явно убрать, иначе они копятся.
+	if is_instance_valid(_hp_bar):
+		_hp_bar.queue_free()
+	_hp_bar = null
+
+	if is_instance_valid(_hp_label):
+		_hp_label.queue_free()
+	_hp_label = null
+
+	if is_instance_valid(_xp_bar):
+		_xp_bar.queue_free()
+	_xp_bar = null
+
+	_pause_menu = null   # просто ссылка, освобождать не надо
+
+
+func _build() -> void:
+	# --- состояние ---
 	health = MAX_HEALTH
+	damage_mult = 1.0
+	regen_per_sec = 0.0
+	_regen_accum = 0.0
+	_pitch = 0.0
+	_is_compressing = false
+	_compress_time = 0.0
+	_tuck_timer = 0.0
+	_jump_buffer_timer = 0.0
+	_coyote_timer = 0.0
+	_dash_timer = 0.0
+	_launch_cooldown = 0.0
+	_jump_cut_ready = false
+
 	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_base_fov = camera.fov
+	camera.rotation.x = 0.0
+
+	# --- коллизия ---
 	_col = find_child("CollisionShape3D", true, false) as CollisionShape3D
+	_col_ready = false
 	if _col and _col.shape is CapsuleShape3D:
 		var cap := _col.shape as CapsuleShape3D
 		_col_orig_height = cap.height
 		_col_orig_center_y = _col.position.y
 		_col_ready = true
 
-	# --- HP HUD ---
+	# --- HUD: HP ---
 	UIKit.hud_create(hp_bar_pos)
 	_hp_bar = UIKit.hud_bar(float(health), float(MAX_HEALTH), UIKit.C_HP, hp_bar_size)
-	
+
 	_hp_label = Label.new()
 	_hp_label.add_theme_font_size_override("font_size", 14)
 	_hp_label.add_theme_color_override("font_color", UIKit.C_TEXT_HI)
@@ -134,11 +160,70 @@ func _ready() -> void:
 	_hp_label.text = "%d/%d" % [health, MAX_HEALTH]
 	UIKit._hud_layer.add_child(_hp_label)
 
+	# --- HUD: XP ---
+	if show_xp_bar:
+		_create_xp_bar()
+		if not LevelSystem.xp_changed.is_connected(_on_xp_changed):
+			LevelSystem.xp_changed.connect(_on_xp_changed)
+		_on_xp_changed(LevelSystem.xp, LevelSystem.xp_to_next)
+
+func _create_xp_bar() -> void:
+	_xp_bar = ProgressBar.new()
+	_xp_bar.show_percentage = false
+	_xp_bar.max_value = LevelSystem.xp_to_next
+	_xp_bar.value = 0
+	_xp_bar.anchor_left = 0.5
+	_xp_bar.anchor_right = 0.5
+	_xp_bar.anchor_top = 1.0
+	_xp_bar.anchor_bottom = 1.0
+	_xp_bar.offset_left = -300
+	_xp_bar.offset_right = 300
+	_xp_bar.offset_top = -106
+	_xp_bar.offset_bottom = -86
+
+	var sb_bg := StyleBoxFlat.new()
+	sb_bg.bg_color = Color(0, 0, 0, 0.55)
+	sb_bg.border_color = UIKit.C_TEXT_DIM
+	sb_bg.set_border_width_all(2)
+	sb_bg.set_corner_radius_all(3)
+	_xp_bar.add_theme_stylebox_override("background", sb_bg)
+
+	var sb_fill := StyleBoxFlat.new()
+	sb_fill.bg_color = UIKit.C_ACCENT
+	sb_fill.set_corner_radius_all(3)
+	_xp_bar.add_theme_stylebox_override("fill", sb_fill)
+
+	UIKit._hud_layer.add_child(_xp_bar)
+
+
+func _on_xp_changed(current: int, needed: int) -> void:
+	if not is_instance_valid(_xp_bar):
+		return
+	_xp_bar.max_value = maxi(needed, 1)
+	UIKit.hud_bar_animate(_xp_bar, float(current), 0.15)
+
+
+func apply_upgrade(data: Dictionary) -> void:
+	match str(data.get("id", "")):
+		"hp":
+			MAX_HEALTH += 20
+			health = mini(health + 20, MAX_HEALTH)
+			_update_hp_bar()
+		"dmg":
+			damage_mult *= 1.10
+		"spd":
+			SPEED *= 1.05
+			MAX_SPEED *= 1.05
+		"regen":
+			regen_per_sec += 1.0
+		"heal":
+			heal(999999)
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if UIKit.is_open():
-			return                        # меню паузы само обработает
+			return
 		_open_pause_menu()
 		get_viewport().set_input_as_handled()
 		return
@@ -160,19 +245,21 @@ func _open_pause_menu() -> void:
 	get_tree().current_scene.add_child.call_deferred(_pause_menu)
 
 
-# ============================================================
-#  ГЛАВНЫЙ ЦИКЛ
-# ============================================================
 func _physics_process(delta: float) -> void:
+	if regen_per_sec > 0.0 and health > 0 and health < MAX_HEALTH:
+		_regen_accum += regen_per_sec * delta
+		if _regen_accum >= 1.0:
+			var whole := int(_regen_accum)
+			_regen_accum -= whole
+			heal(whole)
+
 	var on_floor := is_on_floor()
 
-	# --- Coyote ---
 	if on_floor:
 		_coyote_timer = COYOTE_TIME
 	elif _coyote_timer > 0.0:
 		_coyote_timer -= delta
 
-	# --- Таймеры ---
 	if _dash_timer > 0.0:
 		_dash_timer -= delta
 	if _jump_buffer_timer > 0.0:
@@ -180,17 +267,14 @@ func _physics_process(delta: float) -> void:
 	if _launch_cooldown > 0.0:
 		_launch_cooldown -= delta
 
-	# --- Jump buffer + auto-bhop ---
 	if Input.is_action_just_pressed("space"):
 		_jump_buffer_timer = JUMP_BUFFER
 	if auto_bhop and Input.is_action_pressed("space") and on_floor:
 		_jump_buffer_timer = JUMP_BUFFER
 
-	# --- Гравитация ---
 	if not on_floor:
 		velocity.y -= GRAVITY * delta
 
-	# --- Прыжок ---
 	var jumped := false
 	if _jump_buffer_timer > 0.0 and (on_floor or _coyote_timer > 0.0):
 		if _is_compressing:
@@ -202,7 +286,6 @@ func _physics_process(delta: float) -> void:
 		_jump_cut_ready = true
 		jumped = true
 
-	# --- Короткий прыжок при раннем отпускании пробела ---
 	if _jump_cut_ready:
 		if velocity.y <= 0.0:
 			_jump_cut_ready = false
@@ -210,17 +293,14 @@ func _physics_process(delta: float) -> void:
 			velocity.y *= JUMP_CUT
 			_jump_cut_ready = false
 
-	# --- Tuck / Launch ---
 	var shift_held := Input.is_action_pressed("compress")
 	var shift_just := Input.is_action_just_pressed("compress")
 	var tuck_just := Input.is_action_just_pressed("tuck")
 
 	if shift_just and not _is_compressing and _launch_cooldown <= 0.0:
 		_start_compress()
-
 	if _is_compressing and not shift_held:
 		_end_compress(true)
-
 	if tuck_just and on_floor and not _is_compressing and not jumped:
 		_tuck_timer = TUCK_DURATION
 		_set_crouch_shape(true)
@@ -229,13 +309,11 @@ func _physics_process(delta: float) -> void:
 		if _tuck_timer <= 0.0 and not _is_compressing:
 			_set_crouch_shape(false)
 
-	# --- Ввод ---
 	var input_dir := Input.get_vector("a", "d", "w", "s")
 	var wish_dir := transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)
 	wish_dir.y = 0.0
 	wish_dir = wish_dir.normalized() if wish_dir.length_squared() > 0.01 else Vector3.ZERO
 
-	# --- Движение ---
 	if not on_floor:
 		if _is_compressing:
 			_process_compress(delta, wish_dir, true)
@@ -252,7 +330,6 @@ func _physics_process(delta: float) -> void:
 	_clamp_horizontal()
 	move_and_slide()
 
-	# --- FOV kick ---
 	var target_fov := _base_fov + (DASH_FOV_KICK if _dash_timer > 0.0 else 0.0)
 	camera.fov = move_toward(camera.fov, target_fov, 400.0 * delta)
 
@@ -260,9 +337,6 @@ func _physics_process(delta: float) -> void:
 		_compress_time += delta
 
 
-# ============================================================
-#  ДВИЖЕНИЕ
-# ============================================================
 func _accelerate(vel: Vector3, wish_dir: Vector3, wish_speed: float, accel: float, delta: float) -> Vector3:
 	var current_speed := vel.dot(wish_dir)
 	var add_speed := wish_speed - current_speed
@@ -286,8 +360,6 @@ func _rotate_horizontal_toward(vel: Vector3, target_dir: Vector3, max_radians: f
 	return vel
 
 
-## Мягкий потолок бхопа: излишек скорости над BHOP_SOFT_CAP слегка гасится
-## при каждом прыжке. Во время дэша от лонча не трогаем.
 func _apply_bhop_soft_cap() -> void:
 	if _dash_timer > 0.0:
 		return
@@ -324,7 +396,6 @@ func _process_ground(delta: float, wish_dir: Vector3) -> void:
 func _process_air(delta: float, wish_dir: Vector3) -> void:
 	if wish_dir == Vector3.ZERO:
 		return
-
 	var accel := AIR_ACCEL
 	if _dash_timer > 0.0:
 		accel *= DASH_AIR_ACCEL_MULT
@@ -367,9 +438,6 @@ func _clamp_horizontal() -> void:
 		velocity.z *= r
 
 
-# ============================================================
-#  COMPRESS / LAUNCH
-# ============================================================
 func _start_compress() -> void:
 	_is_compressing = true
 	_compress_time = 0.0
@@ -394,7 +462,7 @@ func _end_compress(do_launch: bool) -> void:
 			if velocity.y < up:
 				velocity.y = up
 
-			_jump_cut_ready = false # поп от лонча не должен обрезаться
+			_jump_cut_ready = false
 			_dash_timer = DASH_WINDOW
 			_launch_cooldown = LAUNCH_COOLDOWN
 			Shaker.play(0.18, 0.3, Tween.TRANS_EXPO)
@@ -425,12 +493,6 @@ func _set_crouch_shape(crouched: bool) -> void:
 		_col.position.y = _col_orig_center_y
 
 
-# ============================================================
-#  ПРИЦЕЛИВАНИЕ
-# ============================================================
-## Возвращает { "point": Vector3, "collider": Object или null }.
-## 1) Точный луч из центра камеры.
-## 2) Если луч промахнулся — сферический свип (aim-assist) по врагам.
 func _find_aim_target() -> Dictionary:
 	var space := get_world_3d().direct_space_state
 	var from := _aim_origin()
@@ -438,14 +500,12 @@ func _find_aim_target() -> Dictionary:
 	var to := from + dir * AIM_RANGE
 	var self_rid := get_rid()
 
-	# --- 1. Точный луч ---
 	var ray := PhysicsRayQueryParameters3D.create(from, to, aim_mask, [self_rid])
 	ray.collide_with_areas = true
 	var hit := space.intersect_ray(ray)
 	if not hit.is_empty():
 		return {"point": hit.position, "collider": hit.collider}
 
-	# --- 2. Помощь прицела ---
 	if assist_mask != 0:
 		var sphere := SphereShape3D.new()
 		sphere.radius = AIM_ASSIST_RADIUS
@@ -460,7 +520,6 @@ func _find_aim_target() -> Dictionary:
 
 		var motion := space.cast_motion(q)
 		if motion.size() == 2 and motion[1] < 1.0:
-			# Сфера в точке касания -> узнаём, кого и где задели.
 			q.transform = Transform3D(Basis.IDENTITY, from + dir * AIM_RANGE * motion[1])
 			q.motion = Vector3.ZERO
 			q.margin = 0.05
@@ -469,29 +528,21 @@ func _find_aim_target() -> Dictionary:
 				var target_point: Vector3 = rest.point
 				var target_collider := instance_from_id(rest.collider_id)
 
-				# Проверка прямой видимости: стены между нами и врагом не пропускаем.
 				var los := PhysicsRayQueryParameters3D.create(from, target_point, aim_mask, [self_rid])
 				los.collide_with_areas = true
 				var los_hit := space.intersect_ray(los)
 				if los_hit.is_empty() or los_hit.collider == target_collider:
 					return {"point": target_point, "collider": target_collider}
 
-	# --- Промах: летим вдоль линии прицела ---
 	return {"point": to, "collider": null}
 
 
-# ============================================================
-#  ОРУЖИЕ
-# ============================================================
-## Реальная точка, из которой камера "видит" мир: Shaker двигает камеру
-## через h_offset/v_offset, а global_position при этом не меняется.
 func _aim_origin() -> Vector3:
 	var b := camera.global_transform.basis
 	return camera.global_position + b.x * camera.h_offset + b.y * camera.v_offset
 
 
 func shoot() -> void:
-	# Сначала считаем цель (до тряски камеры), потом эффекты.
 	var target := _find_aim_target()
 	var target_point: Vector3 = target.point
 
@@ -503,11 +554,9 @@ func shoot() -> void:
 
 	var bullet := BulletScene.instantiate() as Node3D
 	get_tree().current_scene.add_child(bullet)
-	# Старт на линии прицела, чуть впереди камеры (а не из смещённого дула).
 	var origin := _aim_origin() - camera.global_transform.basis.z * 0.5
 	bullet.global_transform = Transform3D(camera.global_transform.basis, origin)
 
-	# Разворачиваем пулю к точке попадания (пуля летит по -Z).
 	var to_target: Vector3 = target_point - bullet.global_position
 	if to_target.length() > 0.1:
 		var up := Vector3.UP
@@ -515,7 +564,9 @@ func shoot() -> void:
 			up = Vector3.RIGHT
 		bullet.look_at(target_point, up)
 
-	# Необязательно: пуля может узнать цель (например, чтобы гарантированно попасть).
+	if "damage_mult" in bullet:
+		bullet.damage_mult = damage_mult
+
 	if bullet.has_method("set_target"):
 		bullet.set_target(target_point, target.collider)
 
@@ -534,7 +585,6 @@ func _apply_weapon_knockback() -> void:
 func take_damage(amount: int) -> void:
 	health = maxi(health - amount, 0)
 	_update_hp_bar()
-
 	if health <= 0:
 		_on_died()
 
@@ -552,15 +602,15 @@ func _update_hp_bar() -> void:
 	var ratio := float(health) / float(MAX_HEALTH)
 	var color := UIKit.C_HP
 	if ratio <= 0.25:
-		color = UIKit.C_ACCENT        # кислотный лайм — «на грани»
+		color = UIKit.C_ACCENT
 	elif ratio <= 0.5:
-		color = UIKit.C_WARN          # оранжевый
+		color = UIKit.C_WARN
 	UIKit.hud_bar_color(_hp_bar, color)
-	
+
 	if is_instance_valid(_hp_label):
 		_hp_label.text = "%d/%d" % [health, MAX_HEALTH]
 
 
 func _on_died() -> void:
-	UIKit.hud_close()                  # убрать HUD, чтобы не висел под экраном смерти
+	UIKit.hud_close()
 	gameover.build("пососи")
