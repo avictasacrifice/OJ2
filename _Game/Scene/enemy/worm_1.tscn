@@ -1,0 +1,5 @@
+[gd_scene format=3 uid="uid://22k11bll0qv7"]
+
+[ext_resource type="PackedScene" uid="uid://bjcql5bqawvy7" path="res://_Game/Scene/enemy/worm1.glb" id="1_80vqd"]
+
+[node name="worm1" unique_id=443794542 instance=ExtResource("1_80vqd")]
