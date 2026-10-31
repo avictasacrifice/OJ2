@@ -5,11 +5,16 @@ extends CharacterBody3D
 # ============================================================
 
 # --- Основа ---
-var health: int = 10
+var _hp_label: Label
+const MAX_HEALTH := 10          # current health остаётся var health
+@export var hp_bar_size := Vector2(280, 20)
+@export var hp_bar_pos := Vector2(24, 24)
+var _hp_bar: ProgressBar
 const SPEED := 10.0
 const MAX_SPEED := 50.0
 const GRAVITY := 20.0
 const JUMP_VELOCITY := 7.5
+var health
 
 # --- Земля ---
 const GROUND_ACCEL := 18.0
@@ -32,7 +37,7 @@ const JUMP_BUFFER := 0.15
 @export var auto_bhop := true
 
 # --- Мышь ---
-const MOUSE_SENSITIVITY := 0.0026
+@export var MOUSE_SENSITIVITY := 0.0026
 const PITCH_LIMIT := deg_to_rad(88.0)
 
 # --- Compress / Launch ---
@@ -77,6 +82,8 @@ const AIM_ASSIST_RADIUS := 0.6       # "примерно попал" — рад�
 @onready var camera: Camera3D = $Camera3D
 @onready var muzzle: Marker3D = $Camera3D/Muzzle
 
+const PAUSE_MENU_SCENE := preload("res://_Game/UI/_pause_menu.tscn")
+var _pause_menu: Control = null
 
 # ============================================================
 #  СОСТОЯНИЕ
@@ -102,7 +109,9 @@ var _base_fov := 0.0
 # ============================================================
 #  LIFECYCLE
 # ============================================================
+
 func _ready() -> void:
+	health = MAX_HEALTH
 	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_base_fov = camera.fov
@@ -113,13 +122,25 @@ func _ready() -> void:
 		_col_orig_center_y = _col.position.y
 		_col_ready = true
 
+	# --- HP HUD ---
+	UIKit.hud_create(hp_bar_pos)
+	_hp_bar = UIKit.hud_bar(float(health), float(MAX_HEALTH), UIKit.C_HP, hp_bar_size)
+	
+	_hp_label = Label.new()
+	_hp_label.add_theme_font_size_override("font_size", 14)
+	_hp_label.add_theme_color_override("font_color", UIKit.C_TEXT_HI)
+	_hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hp_label.position = Vector2(hp_bar_pos.x + hp_bar_size.x + 8, hp_bar_pos.y)
+	_hp_label.text = "%d/%d" % [health, MAX_HEALTH]
+	UIKit._hud_layer.add_child(_hp_label)
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		else:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if UIKit.is_open():
+			return                        # меню паузы само обработает
+		_open_pause_menu()
+		get_viewport().set_input_as_handled()
 		return
 
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -129,6 +150,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("fire") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		shoot()
+
+
+func _open_pause_menu() -> void:
+	if is_instance_valid(_pause_menu):
+		return
+	_pause_menu = PAUSE_MENU_SCENE.instantiate()
+	_pause_menu.tree_exited.connect(func() -> void: _pause_menu = null)
+	get_tree().current_scene.add_child.call_deferred(_pause_menu)
 
 
 # ============================================================
@@ -503,7 +532,35 @@ func _apply_weapon_knockback() -> void:
 
 
 func take_damage(amount: int) -> void:
-	health -= amount
-	print("Игрок: ", health)
+	health = maxi(health - amount, 0)
+	_update_hp_bar()
+
 	if health <= 0:
-		gameover.build("пососи")
+		_on_died()
+
+
+func heal(amount: int) -> void:
+	health = mini(health + amount, MAX_HEALTH)
+	_update_hp_bar()
+
+
+func _update_hp_bar() -> void:
+	if not is_instance_valid(_hp_bar):
+		return
+	UIKit.hud_bar_animate(_hp_bar, float(health), 0.15)
+
+	var ratio := float(health) / float(MAX_HEALTH)
+	var color := UIKit.C_HP
+	if ratio <= 0.25:
+		color = UIKit.C_ACCENT        # кислотный лайм — «на грани»
+	elif ratio <= 0.5:
+		color = UIKit.C_WARN          # оранжевый
+	UIKit.hud_bar_color(_hp_bar, color)
+	
+	if is_instance_valid(_hp_label):
+		_hp_label.text = "%d/%d" % [health, MAX_HEALTH]
+
+
+func _on_died() -> void:
+	UIKit.hud_close()                  # убрать HUD, чтобы не висел под экраном смерти
+	gameover.build("пососи")

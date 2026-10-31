@@ -1,6 +1,6 @@
 extends Area3D
 
-const SPEED := 120.0
+const SPEED := 60.0
 const LIFETIME := 2.0
 const DAMAGE := 1
 const HIT_MARGIN := 0.2   # небольшой запас, чтобы луч гарантированно достал поверхность

@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://b6q1x3okocxa6" path="res://_Game/Scene/enemy/enemy.tscn" id="6_lfwek"]
 [ext_resource type="PackedScene" uid="uid://tmoa0fmtk4i8" path="res://_Game/Scene/main/Sewer.glb" id="6_u8vf7"]
 [ext_resource type="Shader" uid="uid://bafu0w1nvxm5e" path="res://_Game/Scene/main/wather.gdshader" id="7_u8vf7"]
+[ext_resource type="Script" uid="uid://bse62368rf251" path="res://_Game/Scene/main/trigger.gd" id="8_ipjt6"]
 
 [sub_resource type="Environment" id="Environment_hl1nl"]
 background_mode = 1
@@ -56,10 +57,13 @@ shader_parameter/wave_height = 0.53600002546
 
 [sub_resource type="QuadMesh" id="QuadMesh_hl1nl"]
 material = SubResource("ShaderMaterial_kdj24")
-size = Vector2(200, 200)
+size = Vector2(58.16, 277.52)
 subdivide_width = 100
 subdivide_depth = 100
 orientation = 1
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_hl1nl"]
+size = Vector3(6.7585588, 7.152, 0.165)
 
 [node name="Main" type="Node3D" unique_id=223283744]
 
@@ -69,6 +73,12 @@ environment = SubResource("Environment_hl1nl")
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1616475035 node_paths=PackedStringArray("gameover")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24.094538, 0.8171024, -75.83914)
 script = ExtResource("1_dyvsr")
+hp_bar_size = null
+hp_bar_pos = null
+auto_bhop = null
+MOUSE_SENSITIVITY = null
+aim_mask = null
+assist_mask = null
 BulletScene = ExtResource("2_67t6u")
 gameover = NodePath("../CanvasLayer/Shader/ColorRect/GameOver")
 
@@ -139,10 +149,31 @@ light_energy = 0.646
 shadow_enabled = true
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Light" unique_id=1498514214]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.1362362, -2.454926e-07)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.1362362, 42.255104)
 mesh = SubResource("QuadMesh_hl1nl")
 
 [node name="lvl1" type="Node3D" parent="." unique_id=719834729]
+
+[node name="Area3D" type="Area3D" parent="lvl1" unique_id=156758203]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4064, 1.4371575, 12.134769)
+script = ExtResource("8_ipjt6")
+message = "УБЕЙ ЕГО"
+pause_game = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="lvl1/Area3D" unique_id=1460579760]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.10217023, 1.7160646, -7.301817)
+shape = SubResource("BoxShape3D_hl1nl")
+
+[node name="Area3D2" type="Area3D" parent="lvl1" unique_id=1688400068]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4064, 1.4371575, 51.17248)
+script = ExtResource("8_ipjt6")
+message = "в игре есть bhop
+а еще можешь нажать shift"
+pause_game = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="lvl1/Area3D2" unique_id=862589972]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.10217023, 1.7160646, -7.301817)
+shape = SubResource("BoxShape3D_hl1nl")
 
 [node name="Sewer" parent="lvl1" unique_id=1224933508 instance=ExtResource("6_u8vf7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56.239, 0, 45.934)

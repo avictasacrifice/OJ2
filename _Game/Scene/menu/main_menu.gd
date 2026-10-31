@@ -18,7 +18,7 @@ var _fs_button: Button
 
 
 func _ready() -> void:
-	# Сам Control ничего не рисует — не мешаем кликам доходить до UI UIKit.
+	UIKit.set_default_font(preload("res://_Game/Assets/fonts/main.ttf"))
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_main_menu()
 
