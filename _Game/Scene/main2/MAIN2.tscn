@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://chf5wat858pgc"]
 
 [ext_resource type="PackedScene" uid="uid://csdomhkjfod5b" path="res://_Game/Scene/main2/Sewer.glb" id="1_8f1at"]
+[ext_resource type="Script" uid="uid://b6av1c2xojfdg" path="res://_Game/Scene/main2/timer.gd" id="1_dr5ov"]
 [ext_resource type="Shader" uid="uid://bafu0w1nvxm5e" path="res://_Game/Scene/main/wather.gdshader" id="2_fahck"]
 [ext_resource type="Script" uid="uid://qvgce1fhwijs" path="res://_Game/Scene/main/player.gd" id="2_mxnkk"]
 [ext_resource type="Script" uid="uid://bomfibwlnio8g" path="res://_Game/Scene/main2/spawnerr.gd" id="3_dr5ov"]
@@ -8,8 +9,11 @@
 [ext_resource type="PackedScene" uid="uid://b6q1x3okocxa6" path="res://_Game/Scene/enemy/enemy.tscn" id="4_7v688"]
 [ext_resource type="PackedScene" uid="uid://8xel0sy6m1nn" path="res://_Game/Scene/pist/pistol_01.tscn" id="4_dr5ov"]
 [ext_resource type="Shader" uid="uid://6vvrsg3cndc6" path="res://_Game/Scene/main/dither.gdshader" id="5_7v688"]
+[ext_resource type="Script" uid="uid://cfc2jq02gi6c8" path="res://_Game/Scene/pist/wapon.gd" id="5_oyjpd"]
+[ext_resource type="PackedScene" uid="uid://kqmb2hk78vhd" path="res://_Game/Scene/shtg/shtg.glb" id="6_ugxsm"]
 [ext_resource type="Script" uid="uid://budg5tjkdblb7" path="res://_Game/Scene/main/palette_controller.gd" id="6_uy0ph"]
 [ext_resource type="PackedScene" uid="uid://md4i81caa8hl" path="res://_Game/Scene/menu/game_over.tscn" id="7_oyjpd"]
+[ext_resource type="PackedScene" uid="uid://cbt72qmlvwodb" path="res://_Game/Scene/enemy2/enemy_2.tscn" id="11_uy0ph"]
 
 [sub_resource type="Environment" id="Environment_ugxsm"]
 background_mode = 1
@@ -67,6 +71,8 @@ subdivide_depth = 100
 orientation = 1
 
 [node name="Main2" type="Node3D" unique_id=1482745054]
+script = ExtResource("1_dr5ov")
+pause_with_game = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=265385204]
 environment = SubResource("Environment_ugxsm")
@@ -74,9 +80,6 @@ environment = SubResource("Environment_ugxsm")
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=185138129 node_paths=PackedStringArray("gameover")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41.726128, 0.8171024, -35.005997)
 script = ExtResource("2_mxnkk")
-aim_mask = null
-assist_mask = null
-BulletScene = ExtResource("3_fahck")
 gameover = NodePath("../CanvasLayer/Shader/ColorRect/GameOver")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=1707672253]
@@ -89,8 +92,19 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.03)
 gizmo_extents = 0.0
 
-[node name="Pistol" parent="CharacterBody3D/Camera3D" unique_id=1380422138 instance=ExtResource("4_dr5ov")]
+[node name="Wapon" parent="CharacterBody3D/Camera3D" unique_id=1380422138 instance=ExtResource("4_dr5ov")]
 transform = Transform3D(3.0199159e-09, 0, 0.04, 0, 0.04, 0, -0.04, 0, 3.0199159e-09, 0.54112625, -0.7503755, -0.56500244)
+script = ExtResource("5_oyjpd")
+
+[node name="Wapon_2" parent="CharacterBody3D/Camera3D" unique_id=2003161658 instance=ExtResource("6_ugxsm")]
+transform = Transform3D(-1.0927848e-09, 0, 0.025, 0, 0.025, 0, -0.025, 0, -1.0927848e-09, 0.52351373, -0.55099773, -0.50933456)
+script = ExtResource("5_oyjpd")
+weapon_name = "Shotgun"
+fire_mode = 1
+pellets = 10
+damage_per_pellet = 0.8
+rounds_per_minute = 75.0
+projectile_scene = ExtResource("3_fahck")
 
 [node name="AreaLight3D" type="AreaLight3D" parent="CharacterBody3D" unique_id=1483790358]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22312021, 0)
@@ -146,8 +160,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -117.325485, 1.5258789e-05, -
 
 [node name="Node3D" type="Node3D" parent="NavigationRegion3D/Sewer" unique_id=681878612 node_paths=PackedStringArray("navigation_region")]
 script = ExtResource("3_dr5ov")
-enemy_scene = ExtResource("4_7v688")
+enemy_scene_primary = ExtResource("4_7v688")
+enemy_scene_secondary = ExtResource("11_uy0ph")
 navigation_region = NodePath("../..")
+difficulty_growth_per_minute = 1.3
+secondary_unlock_time = 120.175
 debug_log = true
 
 [node name="NavigationObstacle3D" type="NavigationObstacle3D" parent="NavigationRegion3D" unique_id=1091071544]

@@ -2,89 +2,123 @@ extends Node3D
 class_name EnemySpawner
 
 # ============================================================
-#  ЭКСПОРТНЫЕ ПЕРЕМЕННЫЕ
+#  СЦЕНЫ ВРАГОВ
 # ============================================================
 
-@export_group("Сцена врага")
-## Сцена врага, которую нужно спавнить
-@export var enemy_scene: PackedScene
+@export_group("Сцены врагов")
+## Базовый враг (тип 1) — появляется всегда
+@export var enemy_scene_primary: PackedScene
 
-## Родитель для заспавненных врагов (если null — добавление в текущую сцену)
+## Второй тип врага — появляется только после unlock
+@export var enemy_scene_secondary: PackedScene
+
 @export var enemy_container: Node3D
 
-@export_group("Навигация")
-## Регион навигации, по которому будем выбирать точки спавна.
-## Если не задан — берётся первый NavigationRegion3D в дереве сцены.
-@export var navigation_region: NavigationRegion3D
+# ============================================================
+#  НАВИГАЦИЯ
+# ============================================================
 
-## Слой навигации, по которому искать случайную точку
+@export_group("Навигация")
+@export var navigation_region: NavigationRegion3D
 @export_range(1, 32, 1) var navigation_layers: int = 1
 
+# ============================================================
+#  ДИСТАНЦИЯ ОТ ИГРОКА
+# ============================================================
+
 @export_group("Дистанция от игрока")
-## Игрок будет искаться по этой группе
 @export var player_group: StringName = &"player"
-
-## Минимальное расстояние от игрока до точки спавна (в метрах)
 @export var min_spawn_distance: float = 12.0
-
-## Максимальное расстояние от игрока до точки спавна (в метрах).
-## Поставь 0 или отрицательное значение, чтобы отключить верхний предел.
 @export var max_spawn_distance: float = 0.0
-
-## Сколько раз пробовать найти подходящую точку за один вызов
 @export_range(1, 100, 1) var max_attempts: int = 25
 
+# ============================================================
+#  ТАЙМЕР И ЛИМИТЫ
+# ============================================================
+
 @export_group("Таймер и лимиты")
-## Интервал между спавнами в секундах (0 — спавн отключён по таймеру)
 @export var spawn_interval: float = 3.0
-
-## Максимум одновременно живых врагов (0 — без ограничения)
 @export var max_alive_enemies: int = 20
-
-## Начинать ли автоспавн сразу при старте сцены
 @export var autostart: bool = true
-
-## Случайная задержка перед первым спавном (для естественности)
 @export var first_spawn_delay: float = 1.0
 
+# ============================================================
+#  ПРОГРЕССИЯ СЛОЖНОСТИ
+# ============================================================
+
+@export_group("Прогрессия сложности")
+## Стартовый множитель характеристик (обычно 1.0)
+@export var difficulty_base: float = 1.0
+
+## Во сколько раз растут характеристики за КАЖДУЮ минуту.
+## 1.20  ->  +20% в минуту  ->  за 5 минут ≈ x2.49
+## 1.15  ->  +15% в минуту  ->  за 5 минут ≈ x2.01
+## 1.30  ->  +30% в минуту  ->  за 5 минут ≈ x3.71
+@export var difficulty_growth_per_minute: float = 1.20
+
+## Верхний потолок множителя (0 — без ограничения)
+@export var difficulty_max_multiplier: float = 0.0
+
+# ============================================================
+#  ВТОРОЙ ТИП ВРАГА
+# ============================================================
+
+@export_group("Второй тип врага")
+## Через сколько секунд от начала игры может появиться 2-й тип
+@export var secondary_unlock_time: float = 120.0       # 2 минуты
+
+## Шанс появления 2-го типа сразу после unlock
+@export_range(0.0, 1.0, 0.01) var secondary_chance_start: float = 0.10
+
+## Время (в секундах от начала), когда шанс достигает максимума
+@export var secondary_chance_full_time: float = 240.0   # 4 минуты
+
+## Максимальный шанс 2-го типа
+@export_range(0.0, 1.0, 0.01) var secondary_chance_end: float = 0.90
+
+# ============================================================
+#  ОТЛАДКА
+# ============================================================
+
 @export_group("Отладка")
-## Выводить ли в консоль сообщения о спавне
 @export var debug_log: bool = false
 
 # ============================================================
-#  ВНУТРЕННИЕ ПЕРЕМЕННЫЕ
+#  ВНУТРЕННИЕ
 # ============================================================
 
 var _timer: Timer
 var _alive_enemies: Array[Node] = []
 var _map_rid: RID
 var _nav_ready: bool = false
+var _game_timer: Node
 
 # ============================================================
 #  ЖИЗНЕННЫЙ ЦИКЛ
 # ============================================================
 
 func _ready() -> void:
-	# Валидация сцены врага
-	if enemy_scene == null:
-		push_warning("[EnemySpawner] enemy_scene не назначена — спавн невозможен.")
+	if enemy_scene_primary == null:
+		push_warning("[EnemySpawner] enemy_scene_primary не назначена.")
 		return
 
-	# Ищем регион навигации, если не задан вручную
 	if navigation_region == null:
 		navigation_region = _find_navigation_region()
 		if navigation_region == null:
-			push_error("[EnemySpawner] NavigationRegion3D не найден в сцене.")
+			push_error("[EnemySpawner] NavigationRegion3D не найден.")
 			return
 
-	# Ждём, пока навигационный сервер синхронизируется — иначе map_get_random_point вернёт ZERO
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 
 	_map_rid = navigation_region.get_navigation_map()
 	_nav_ready = true
 
-	# Настраиваем таймер
+	# Ищем игровой таймер (по группе)
+	_game_timer = get_tree().get_first_node_in_group("game_timer")
+	if _game_timer == null:
+		push_warning("[EnemySpawner] game_timer не найден в группе 'game_timer'. Прогресс будет считаться нулевым.")
+
 	if spawn_interval > 0.0:
 		_timer = Timer.new()
 		_timer.wait_time = spawn_interval
@@ -97,66 +131,106 @@ func _ready() -> void:
 			_timer.start(first_spawn_delay)
 
 # ============================================================
-#  ПУБЛИЧНЫЕ МЕТОДЫ (можно дёргать извне)
+#  ПУБЛИЧНЫЕ МЕТОДЫ
 # ============================================================
 
-## Заспавнить одного врага. Возвращает Node или null при неудаче.
 func spawn_one() -> Node:
 	if not _nav_ready:
-		if debug_log:
-			print("[EnemySpawner] Навигация ещё не готова.")
+		return null
+
+	if _game_timer and _game_timer.has_method("is_finished") and _game_timer.is_finished():
 		return null
 
 	if max_alive_enemies > 0 and _alive_enemies.size() >= max_alive_enemies:
-		if debug_log:
-			print("[EnemySpawner] Достигнут лимит живых врагов (%d)." % max_alive_enemies)
 		return null
 
 	var pos := _get_valid_spawn_position()
 	if pos == Vector3.ZERO:
 		if debug_log:
-			print("[EnemySpawner] Не удалось найти подходящую точку спавна.")
+			print("[EnemySpawner] Не найдено валидной точки.")
 		return null
 
-	var enemy := enemy_scene.instantiate()
-	
+	# --- Выбор сцены врага ---
+	var elapsed: float = _get_elapsed()
+	var scene: PackedScene = _choose_enemy_scene(elapsed)
+	if scene == null:
+		return null
+
+	var enemy := scene.instantiate()
+
+	# --- Применяем экспоненциальный множитель ДО добавления в дерево ---
+	var mult := get_difficulty_multiplier()
+	if enemy.has_method("apply_difficulty"):
+		enemy.apply_difficulty(mult)
+	elif debug_log:
+		print("[EnemySpawner] %s не имеет apply_difficulty()." % enemy.name)
+
+	# --- Порядок важен: сначала в дерево, потом global_position ---
 	var parent: Node = enemy_container if enemy_container != null else get_tree().current_scene
 	parent.add_child(enemy)
-	
 	if enemy is Node3D:
 		(enemy as Node3D).global_position = pos
 
-
 	_alive_enemies.append(enemy)
-	# Убираем из списка, когда враг умирает/удаляется
 	enemy.tree_exited.connect(_on_enemy_exited.bind(enemy))
 
 	if debug_log:
-		print("[EnemySpawner] Заспавнен %s в %s" % [enemy.name, pos])
+		print("[EnemySpawner] Спавн %s | t=%.1fс | mult=%.2f | pos=%s" % [scene.resource_path.get_file(), elapsed, mult, pos])
 	return enemy
 
-## Заспавнить несколько врагов сразу
 func spawn_batch(count: int) -> void:
 	for i in range(count):
 		if spawn_one() == null:
 			break
 
-## Запустить автоспавн
 func start_spawning() -> void:
-	if _timer != null:
-		_timer.start()
+	if _timer: _timer.start()
 
-## Остановить автоспавн
 func stop_spawning() -> void:
-	if _timer != null:
-		_timer.stop()
+	if _timer: _timer.stop()
 
-## Вернуть текущее количество живых врагов
 func get_alive_count() -> int:
 	return _alive_enemies.size()
 
 # ============================================================
-#  ВНУТРЕННЯЯ ЛОГИКА
+#  ПРОГРЕССИЯ
+# ============================================================
+
+## Экспоненциальный множитель характеристик.
+## mult = base * growth^minutes
+func get_difficulty_multiplier() -> float:
+	var minutes := _get_elapsed() / 60.0
+	var m := difficulty_base * pow(difficulty_growth_per_minute, minutes)
+	if difficulty_max_multiplier > 0.0:
+		m = minf(m, difficulty_max_multiplier)
+	return m
+
+## Шанс появления 2-го типа (0..1) в зависимости от времени.
+func get_secondary_chance() -> float:
+	var e := _get_elapsed()
+	if e < secondary_unlock_time:
+		return 0.0
+	if e >= secondary_chance_full_time:
+		return secondary_chance_end
+	var t := (e - secondary_unlock_time) / maxf(secondary_chance_full_time - secondary_unlock_time, 0.001)
+	return lerpf(secondary_chance_start, secondary_chance_end, t)
+
+func _choose_enemy_scene(_elapsed: float) -> PackedScene:
+	if enemy_scene_secondary == null:
+		return enemy_scene_primary
+
+	var chance := get_secondary_chance()
+	if randf() < chance:
+		return enemy_scene_secondary
+	return enemy_scene_primary
+
+func _get_elapsed() -> float:
+	if _game_timer and _game_timer.has_method("get_elapsed"):
+		return _game_timer.get_elapsed()
+	return 0.0
+
+# ============================================================
+#  ВНУТРЕННЕЕ
 # ============================================================
 
 func _on_timer_timeout() -> void:
@@ -167,19 +241,18 @@ func _on_enemy_exited(enemy: Node) -> void:
 
 func _find_navigation_region() -> NavigationRegion3D:
 	var regions := get_tree().get_nodes_in_group("navigation_region")
-	if regions.size() > 0 and regions[0] is NavigationRegion3D:
-		return regions[0] as NavigationRegion3D
-
-	# Фолбэк: ищем первого потомка нужного типа
+	for r in regions:
+		if r is NavigationRegion3D:
+			return r as NavigationRegion3D
 	return _find_first_navigation_region(get_tree().current_scene)
 
 func _find_first_navigation_region(node: Node) -> NavigationRegion3D:
 	if node is NavigationRegion3D:
 		return node as NavigationRegion3D
 	for child in node.get_children():
-		var found := _find_first_navigation_region(child)
-		if found != null:
-			return found
+		var f := _find_first_navigation_region(child)
+		if f != null:
+			return f
 	return null
 
 func _get_valid_spawn_position() -> Vector3:
@@ -188,12 +261,9 @@ func _get_valid_spawn_position() -> Vector3:
 	var has_player := player != null
 
 	for i in range(max_attempts):
-		# uniformly = false — быстрее, для коридоров достаточно
 		var point: Vector3 = NavigationServer3D.map_get_random_point(_map_rid, navigation_layers, false)
 		if point == Vector3.ZERO:
 			continue
-
-		# Прилипаем к навигационной поверхности (защита от микро-погрешностей)
 		point = NavigationServer3D.map_get_closest_point(_map_rid, point)
 
 		if has_player:
@@ -202,15 +272,12 @@ func _get_valid_spawn_position() -> Vector3:
 				continue
 			if max_spawn_distance > 0.0 and d > max_spawn_distance:
 				continue
-
-		# Дополнительная проверка: если выбрали максимум попыток и точка всё ещё «плохая»
 		return point
 
 	return Vector3.ZERO
 
 func _get_player() -> Node3D:
-	var nodes := get_tree().get_nodes_in_group(player_group)
-	for n in nodes:
+	for n in get_tree().get_nodes_in_group(player_group):
 		if n is Node3D:
 			return n as Node3D
 	return null

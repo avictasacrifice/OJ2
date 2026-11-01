@@ -27,6 +27,14 @@ extends CharacterBody3D
 @export var xp_reward: int = 5
 @export var max_health: float = 3.0
 
+@export_group("Усложнение")
+## Насколько сильно скорость реагирует на множитель сложности.
+## 0.0 = скорость не растёт вообще, 1.0 = растёт так же, как здоровье.
+@export var difficulty_speed_weight: float = 0.25
+
+## Растёт ли награда XP с усложнением
+@export var difficulty_xp_weight: float = 0.5
+
 var health: float
 var _flash_material: StandardMaterial3D
 var _player: Node3D = null
@@ -34,6 +42,7 @@ var _damage_timer: float = 0.0
 var _is_dead: bool = false
 var _path_timer: float = 0.0
 var _sway_time: float = 0.0
+var _difficulty_applied: bool = false
 @export var _mesh: MeshInstance3D
 
 
@@ -49,6 +58,24 @@ func _ready() -> void:
 		navigation_agent.target_desired_distance = maxf(stop_distance, 0.5)
 		navigation_agent.avoidance_enabled = false
 		call_deferred("_setup_nav_target")
+
+
+## Вызывается спавнером ДО add_child() в дерево.
+## mult = 1.0 — без изменений, mult = 2.5 — характеристики выросли в 2.5 раза
+## (кроме скорости и XP — у них свои веса).
+func apply_difficulty(mult: float) -> void:
+	if _difficulty_applied or mult == 1.0:
+		return
+	_difficulty_applied = true
+
+	max_health = maxf(max_health * mult, 1.0)
+	damage = maxi(1, int(round(float(damage) * mult)))
+	move_speed = move_speed * (1.0 + (mult - 1.0) * difficulty_speed_weight)
+	xp_reward = maxi(1, int(round(float(xp_reward) * (1.0 + (mult - 1.0) * difficulty_xp_weight))))
+
+	# Если apply_difficulty вызвали уже после _ready — синхронизируем здоровье
+	if is_node_ready():
+		health = max_health
 
 
 func _setup_nav_target() -> void:

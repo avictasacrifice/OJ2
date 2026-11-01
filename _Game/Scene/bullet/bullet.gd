@@ -1,14 +1,17 @@
 extends Area3D
 
-const SPEED := 60.0
-const LIFETIME := 2.0
-const DAMAGE := 1.0
-const HIT_MARGIN := 0.2
-
+@export var speed: float = 60.0
+@export var lifetime: float = 2.0
+@export var damage: float = 1.0
+@export var hit_margin: float = 0.2
 @export_flags_3d_physics var hit_mask: int = 0xFFFFFFFF
 
-var damage_mult: float = 1.0
+@export_group("Падение урона")
+@export var falloff_start: float = 20.0
+@export var falloff_end: float = 45.0
+@export var falloff_min_multiplier: float = 0.5
 
+var _origin: Vector3 = Vector3.ZERO
 var _target_point := Vector3.ZERO
 var _target_collider: Object = null
 var _has_target := false
@@ -20,7 +23,11 @@ func _ready() -> void:
 	var player := get_tree().get_first_node_in_group("player") as CollisionObject3D
 	if player:
 		_exclude.append(player.get_rid())
-	get_tree().create_timer(LIFETIME).timeout.connect(queue_free)
+	get_tree().create_timer(lifetime).timeout.connect(queue_free)
+
+
+func set_origin(origin: Vector3) -> void:
+	_origin = origin
 
 
 func set_target(point: Vector3, collider: Object) -> void:
@@ -34,9 +41,9 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var dir := -global_transform.basis.z
-	var step := SPEED * delta
+	var step := speed * delta
 	var from := global_position
-	var to := from + dir * (step + HIT_MARGIN)
+	var to := from + dir * (step + hit_margin)
 
 	var q := PhysicsRayQueryParameters3D.create(from, to, hit_mask, _exclude)
 	q.collide_with_areas = true
@@ -65,8 +72,18 @@ func _on_hit(collider: Object) -> void:
 		if parent and parent.has_method("take_damage"):
 			target = parent
 	if target.has_method("take_damage"):
-		target.take_damage(DAMAGE * damage_mult)
+		var dist: float = _origin.distance_to(global_position)
+		target.take_damage(damage * _damage_multiplier(dist))
 	_finish()
+
+
+func _damage_multiplier(dist: float) -> float:
+	if dist <= falloff_start:
+		return 1.0
+	if dist >= falloff_end:
+		return falloff_min_multiplier
+	var t: float = (dist - falloff_start) / (falloff_end - falloff_start)
+	return lerpf(1.0, falloff_min_multiplier, t)
 
 
 func _finish() -> void:

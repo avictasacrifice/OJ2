@@ -1,5 +1,4 @@
 extends Node
-## XP-система + очередь наград в стиле «вампиров».
 
 signal xp_changed(current: int, needed: int)
 signal leveled_up(new_level: int)
@@ -16,34 +15,35 @@ var xp: int = 0
 var xp_to_next: int = 10
 
 var _pool: Array[Dictionary] = []
-var _taken_ids: Array[String] = []     # id, которые больше не показываем
-var _pending_choices := 0              # если апнулось несколько уровней сразу
+var _taken_ids: Array[String] = []
+var _pending_choices := 0
 var _choice_open := false
 var _choice_node: Node = null
 
+
 func _ready() -> void:
 	xp_to_next = _calc_needed(level)
-	# Регистрируй пул тут или в отдельном setup-скрипте
 	register_upgrades([
-		{"id": "hp",    "title": "+20 HP",       "desc": "Здоровье",   "weight": 3.0, "stackable": true},
-		{"id": "dmg",   "title": "+10% Урон",    "desc": "Урон",       "weight": 2.0, "stackable": true},
-		{"id": "spd",   "title": "+5% Скорость", "desc": "Скорость",   "weight": 1.0, "stackable": true},
-		{"id": "regen", "title": "+1 HP/сек",    "desc": "Регенерация","weight": 0.6, "stackable": true},
-		{"id": "heal",  "title": "ПОЛНЫЙ ХИЛ",   "desc": "Разово",     "weight": 0.8, "stackable": true},
-		# Пример одноразового (не появится снова):
-		# {"id": "djump","title": "Двойной прыжок","desc": "Разово",  "weight": 0.3, "stackable": false},
+		{"id": "hp",      "title": "+20 HP",       "desc": "Здоровье",    "weight": 3.0, "stackable": true},
+		{"id": "dmg",     "title": "+10% Урон",    "desc": "Урон",        "weight": 2.0, "stackable": true},
+		{"id": "spd",     "title": "+5% Скорость", "desc": "Скорость",    "weight": 1.0, "stackable": true},
+		{"id": "regen",   "title": "+1 HP/сек",    "desc": "Регенерация", "weight": 0.6, "stackable": true},
+		{"id": "shotgun", "title": "ДРОБОВИК",     "desc": "Помповый. 8 дробин. Страшен в упор.", "weight": 1.0, "stackable": false},
 	])
 
-# ---------- API ----------
+
 func register_upgrade(u: Dictionary) -> void:
 	_pool.append(u)
+
 
 func register_upgrades(arr: Array) -> void:
 	for u in arr:
 		register_upgrade(u)
 
+
 func _calc_needed(lvl: int) -> int:
 	return int(round(base_xp_needed * pow(xp_growth, lvl - 1)))
+
 
 func add_xp(amount: int) -> void:
 	if not enabled or amount <= 0:
@@ -59,7 +59,7 @@ func add_xp(amount: int) -> void:
 	xp_changed.emit(xp, xp_to_next)
 	_try_show_next()
 
-# ---------- Выбор награды ----------
+
 func _try_show_next() -> void:
 	if not enabled or not upgrades_enabled:
 		return
@@ -68,6 +68,7 @@ func _try_show_next() -> void:
 	_pending_choices -= 1
 	_choice_open = true
 	_show_choice()
+
 
 func _show_choice() -> void:
 	var s := CHOICE_SCENE.instantiate()
@@ -82,6 +83,7 @@ func _show_choice() -> void:
 	_choice_node = s
 	get_tree().current_scene.add_child.call_deferred(s)
 
+
 func _on_pick(id: String, _index: int, data: Dictionary) -> void:
 	if not data.get("stackable", false) and not _taken_ids.has(id):
 		_taken_ids.append(id)
@@ -90,11 +92,12 @@ func _on_pick(id: String, _index: int, data: Dictionary) -> void:
 		p.apply_upgrade(data)
 	_after_choice()
 
+
 func _on_cancel() -> void:
 	_after_choice()
 
+
 func _after_choice() -> void:
-	# Полный хил независимо от того, выбрали награду или нажали Esc
 	var p := get_tree().get_first_node_in_group("player")
 	if p and p.has_method("heal"):
 		p.heal(999999)
@@ -102,4 +105,4 @@ func _after_choice() -> void:
 	if is_instance_valid(_choice_node):
 		_choice_node.queue_free.call_deferred()
 	_choice_node = null
-	_try_show_next.call_deferred()   # если апнулось несколько уровней подряд
+	_try_show_next.call_deferred()
